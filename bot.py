@@ -4,6 +4,22 @@ import time
 import os
 import logging
 from keep_alive import keep_alive
+import yfinance as yf
+
+def is_stock_active(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        exchange = info.get("exchange", "")
+        tradable_exchanges = ["NMS", "NYQ", "ASE"]  # NASDAQ, NYSE, AMEX
+
+        return (
+            info.get("regularMarketPrice", 0) > 0 and
+            info.get("regularMarketVolume", 0) > 0 and
+            exchange in tradable_exchanges
+        )
+    except:
+        return False
 
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
@@ -74,17 +90,20 @@ def run_bot():
             print("Outside market hours. Sleeping...")
             time.sleep(60 * 15)
             continue
-
-        filings = fetch_filings()
-        for filing in filings:
-            key = (filing['ticker'], filing['investor'], filing['type'])
-            if key in seen:
-                continue
-            if filing['investor'] in CREDIBLE_INVESTORS and filing['exchange'] in EXCHANGES:
-                news_url = find_news(filing['ticker'])
-                send_discord_alert(filing, news_url)
-                seen.add(key)
-        time.sleep(60 * 15)
+filings = fetch_filings()
+for filing in filings:
+    key = (filing['ticker'], filing['investor'], filing['type'])
+    if key in seen:
+        continue
+    if (
+        filing['investor'] in CREDIBLE_INVESTORS and
+        filing['exchange'] in EXCHANGES and
+        is_stock_active(filing['ticker'])  # ✅ NEW LINE
+    ):
+        news_url = find_news(filing['ticker'])
+        send_discord_alert(filing, news_url)
+        seen.add(key)
+time.sleep(60 * 15)
 
 if __name__ == "__main__":
     keep_alive()
