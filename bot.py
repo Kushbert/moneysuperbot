@@ -5,6 +5,17 @@ import os
 import logging
 from keep_alive import keep_alive
 import yfinance as yf
+import json
+import os
+
+SEEN_FILE = "seen_filings.json"
+
+# Load previously seen filings
+if os.path.exists(SEEN_FILE):
+    with open(SEEN_FILE, "r") as f:
+        seen = set(tuple(entry) for entry in json.load(f))
+else:
+    seen = set()
 
 def is_stock_active(ticker):
     try:
@@ -93,17 +104,24 @@ def run_bot():
 filings = fetch_filings()
 for filing in filings:
     key = (filing['ticker'], filing['investor'], filing['type'])
+
     if key in seen:
         continue
+
     if (
         filing['investor'] in CREDIBLE_INVESTORS and
         filing['exchange'] in EXCHANGES and
-        is_stock_active(filing['ticker'])  # ✅ NEW LINE
+        is_stock_active(filing['ticker'])
     ):
         news_url = find_news(filing['ticker'])
         send_discord_alert(filing, news_url)
         seen.add(key)
-time.sleep(60 * 15)
+
+        # ✅ Save updated seen set to disk
+        with open(SEEN_FILE, "w") as f:
+            json.dump(list(seen), f)
+
+time.sleep(60 * 15)  # Wait before checking again
 
 if __name__ == "__main__":
     keep_alive()
