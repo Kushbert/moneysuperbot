@@ -1,0 +1,11 @@
+import json
+import os
+
+SEEN_FILE = "seen_filings.json"
+
+# Load seen filings from disk if exists
+if os.path.exists(SEEN_FILE):
+    with open(SEEN_FILE, "r") as f:
+        seen = set(tuple(entry) for entry in json.load(f))
+else:
+    seen = set()
